@@ -31,20 +31,29 @@ fn try_main() -> Result<()> {
                          .short("n")
                          .long("name")
                          .multiple(true)
+                         .value_name("pat")
                          .takes_value(true)
-                         .help("The patterns the files have to match."))
+                         .help("File name matches pattern(s) pat."))
+                    .arg(Arg::with_name("type")
+                         .short("t")
+                         .value_name("t")
+                         .long("type")
+                         .help("File is of type t."))
                     .arg(Arg::with_name("path")
                          .short("p")
                          .long("path")
                          .multiple(true)
                          .takes_value(true)
-                         .help("The patterns the paths have to match."))
+                         .value_name("pat")
+                         .help("File path matches pattern(s) pat."))
 
                     .get_matches();
     let dir = matches.value_of("dir").unwrap_or(".");
     let name = matches.values_of("name").and_then(|n| Some(n.collect::<Vec<&str>>())).unwrap_or(vec![]).into_iter().map(|n| Pattern::new(n)).collect::<Vec<Pattern>>();
+    let ftype = matches.value_of("type");
     let path = matches.values_of("path").and_then(|n| Some(n.collect::<Vec<&str>>())).unwrap_or(vec![]).into_iter().map(|n| Pattern::new(n)).collect::<Vec<Pattern>>();
     let mut matcher = FileMatcher::from_dir(dir)?;
+    matcher.set_ftype(ftype.map_or(Ok(None), |t| if t == "f" { Ok(Some('f')) } else if t == "d" { Ok(Some('d')) } else { error!("Invalid file type: {}.", t) })?);
     matcher.add_npatterns(&name);
     matcher.add_ppatterns(&path);
     let matched = matcher.matches();
