@@ -34,7 +34,7 @@ impl Pattern {
         }
     }
     pub fn matches(&self, s: impl ToString) -> bool {
-        let s = s.to_string();
+        let mut s = s.to_string();
         self.rules
             .iter()
             .fold(true, |acc, p| acc && if let PT::Start(start) = p {
@@ -42,7 +42,13 @@ impl Pattern {
             } else if let PT::End(end) = p {
                 s.ends_with(end)
             } else if let PT::Contains(sub) = p{
-                s.contains(sub)
+                if  s.contains(sub) {
+                    let idx = s.find(sub).unwrap();
+                    s = s[idx + sub.len() - 1..].to_string();
+                    true
+                } else {
+                    false
+                }
             } else {
                 panic!("Impossible pattern type.");
             })

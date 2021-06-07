@@ -46,7 +46,8 @@ fn try_main() -> Result<()> {
                          .takes_value(true)
                          .value_name("pat")
                          .help("File path matches pattern(s) pat."))
-
+                    .after_help("Patterns work with wildcards, a wildcard matches every set of characters.
+For example, `*.rs` will match all the files ending in .rs.")
                     .get_matches();
     let dir = matches.value_of("dir").unwrap_or(".");
     let name = matches.values_of("name").and_then(|n| Some(n.collect::<Vec<&str>>())).unwrap_or(vec![]).into_iter().map(|n| Pattern::new(n)).collect::<Vec<Pattern>>();
