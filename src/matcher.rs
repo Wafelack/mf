@@ -1,5 +1,5 @@
 use crate::pattern::Pattern;
-use crate::{error, errors::Result};
+use crate::errors::Result;
 use std::os::unix::fs::MetadataExt;
 use std::fs;
 
