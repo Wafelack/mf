@@ -26,23 +26,30 @@ impl File {
 pub struct FileMatcher {
     files: Vec<File>,
     npatterns: Vec<Pattern>,
+    ppatterns: Vec<Pattern>,
 }
 impl FileMatcher {
     pub fn from_dir(dir: impl ToString) -> Result<Self> {
         Ok(Self {
             files: get_files(dir.to_string())?,
             npatterns: vec![],
+            ppatterns: vec![],
         })
     }
     pub fn add_npatterns(&mut self, patterns: &[Pattern]) {
         self.npatterns.extend_from_slice(patterns);
+    }
+    pub fn add_ppatterns(&mut self, patterns: &[Pattern]) {
+        self.ppatterns.extend_from_slice(patterns);
     }
     pub fn matches(&self) -> Vec<File> {
         self.files
             .clone()
             .into_iter()
             .map(|f| {
-                if self.npatterns.iter().fold(true, |acc, p| acc && p.matches(f.name.clone())) {
+                let name = self.npatterns.iter().fold(true, |acc, p| acc && p.matches(f.name.clone()));
+                let path = self.ppatterns.iter().fold(true, |acc, p| acc && p.matches(f.path.clone()));
+                if name && path {
                     Some(f)
                 } else {
                     None
