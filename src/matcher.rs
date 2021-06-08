@@ -27,6 +27,8 @@ pub struct FileMatcher {
     files: Vec<File>,
     npatterns: Vec<Pattern>,
     ppatterns: Vec<Pattern>,
+    gid: Option<u32>,
+    uid: Option<u32>,
     ftype: Option<char>,
 }
 impl FileMatcher {
@@ -35,6 +37,8 @@ impl FileMatcher {
             files: get_files(dir.to_string())?,
             npatterns: vec![],
             ppatterns: vec![],
+            gid: None,
+            uid: None,
             ftype: None,
         })
     }
@@ -47,6 +51,12 @@ impl FileMatcher {
     pub fn add_ppatterns(&mut self, patterns: &[Pattern]) {
         self.ppatterns.extend_from_slice(patterns);
     }
+    pub fn set_gid(&mut self, id: Option<u32>) {
+        self.gid = id;
+    }
+    pub fn set_uid(&mut self, id: Option<u32>) {
+        self.uid = id;
+    }
     pub fn matches(&self) -> Vec<File> {
         self.files
             .clone()
@@ -54,6 +64,8 @@ impl FileMatcher {
             .map(|f| {
                 let name = self.npatterns.iter().fold(true, |acc, p| acc && p.matches(f.name.clone()));
                 let path = self.ppatterns.iter().fold(true, |acc, p| acc && p.matches(f.path.clone()));
+                let gid = self.gid.map_or(true, |i| i == f.gid);
+                let uid = self.uid.map_or(true, |i| i == f.uid);
                 let ftype = if let Some(c) = self.ftype {
                     if c == 'f' && f.ftype {
                         false
@@ -65,7 +77,7 @@ impl FileMatcher {
                 } else {
                     true
                 };
-                if name && path && ftype {
+                if name && path && ftype && gid && uid{
                     Some(f)
                 } else {
                     None

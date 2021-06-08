@@ -36,8 +36,8 @@ fn try_main() -> Result<()> {
                          .help("File name matches pattern(s) pat."))
                     .arg(Arg::with_name("type")
                          .short("t")
-                         .value_name("t")
                          .long("type")
+                         .value_name("t")
                          .help("File is of type t."))
                     .arg(Arg::with_name("path")
                          .short("p")
@@ -46,6 +46,18 @@ fn try_main() -> Result<()> {
                          .takes_value(true)
                          .value_name("pat")
                          .help("File path matches pattern(s) pat."))
+                    .arg(Arg::with_name("gid")
+                         .short("G")
+                         .long("gid")
+                         .value_name("id")
+                         .help("File owner is in group that has GID id."))
+                    .arg(Arg::with_name("uid")
+                         .short("U")
+                         .long("uid")
+                         .value_name("id")
+                         .help("File owner has UID id."))
+
+
                     .after_help("Patterns work with wildcards, a wildcard matches every set of characters.
 For example, `*.rs` will match all the files ending in .rs.")
                     .get_matches();
@@ -53,10 +65,14 @@ For example, `*.rs` will match all the files ending in .rs.")
     let name = matches.values_of("name").and_then(|n| Some(n.collect::<Vec<&str>>())).unwrap_or(vec![]).into_iter().map(|n| Pattern::new(n)).collect::<Vec<Pattern>>();
     let ftype = matches.value_of("type");
     let path = matches.values_of("path").and_then(|n| Some(n.collect::<Vec<&str>>())).unwrap_or(vec![]).into_iter().map(|n| Pattern::new(n)).collect::<Vec<Pattern>>();
+    let gid = matches.value_of("gid").and_then(|v| v.parse::<u32>().map_or(None, |v| Some(v)));
+    let uid = matches.value_of("uid").and_then(|v| v.parse::<u32>().map_or(None, |v| Some(v)));
     let mut matcher = FileMatcher::from_dir(dir)?;
     matcher.set_ftype(ftype.map_or(Ok(None), |t| if t == "f" { Ok(Some('f')) } else if t == "d" { Ok(Some('d')) } else { error!("Invalid file type: {}.", t) })?);
     matcher.add_npatterns(&name);
     matcher.add_ppatterns(&path);
+    matcher.set_uid(uid);
+    matcher.set_gid(gid);
     let matched = matcher.matches();
     matched.into_iter().for_each(|f| println!("{}", f.path));
     Ok(())
