@@ -39,9 +39,9 @@ pub struct FileMatcher {
     ftype: Option<char>,
 }
 impl FileMatcher {
-    pub fn from_dir(dir: impl ToString) -> Result<Self> {
+    pub fn from_dir(dir: impl ToString, depth: bool) -> Result<Self> {
         Ok(Self {
-            files: get_files(dir.to_string())?,
+            files: get_files(dir.to_string(), depth)?,
             npatterns: vec![],
             ppatterns: vec![],
             gid: None,
@@ -107,7 +107,7 @@ impl FileMatcher {
     }
 }
 const MODE_MASK: u32 = 0b111111111111;
-fn get_files(dir: String) -> Result<Vec<File>> {
+fn get_files(dir: String, depth: bool) -> Result<Vec<File>> {
     Ok(fs::read_dir(dir)?
        .map(|e| {
            let entry = e?;
@@ -116,8 +116,15 @@ fn get_files(dir: String) -> Result<Vec<File>> {
            let stringified = path.to_str().unwrap().to_string();
            let f = File::new(stringified.clone(), path.is_dir(), md.uid(), md.gid(), md.mode() & MODE_MASK);
            Ok(if path.is_dir() {
-               let mut files = vec![f];
-               files.extend(get_files(stringified)?);
+               let mut files = if !depth {
+                   vec![f.clone()]
+               } else {
+                   vec![]
+               };
+               files.extend(get_files(stringified, depth)?);
+               if depth {
+                   files.push(f);
+               }
                files
            } else {
                vec![f]

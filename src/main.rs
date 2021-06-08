@@ -50,6 +50,7 @@ macro_rules! gen_app {
                 .short("G")
                 .long("gid")
                 .value_name("id")
+                 .takes_value(true)
                 .help("File owner belongs to the group that has GID `id'."),
                 )
             .arg(
@@ -57,6 +58,7 @@ macro_rules! gen_app {
                 .short("U")
                 .long("uid")
                 .value_name("id")
+                 .takes_value(true)
                 .help("File owner has UID `id'."),
                 )
             .arg(
@@ -64,6 +66,7 @@ macro_rules! gen_app {
                 .short("u")
                 .long("user")
                 .value_name("name")
+                 .takes_value(true)
                 .help("File owner has username `name'."),
                 )
             .arg(
@@ -71,18 +74,25 @@ macro_rules! gen_app {
                 .short("g")
                 .long("group")
                 .value_name("name")
+                 .takes_value(true)
                 .help("File owner belongs to the group named `name'."),
                 )
             .arg(Arg::with_name("execute")
                  .short("x")
                  .long("exec")
                  .value_name("command")
+                 .takes_value(true)
                  .help("The command to run for each file. `{}' is replaced by the file name in the command."))
             .arg(Arg::with_name("permissions")
                  .short("P")
                  .long("perms")
                  .value_name("bits")
+                 .takes_value(true)
                  .help("File has premissions bits set to `bits'."))
+            .arg(Arg::with_name("depth")
+                 .short("d")
+                 .long("depth")
+                 .help("Process the directory content before the directory itself."))
             .after_help(
                 "Patterns work with wildcards, a wildcard matches every set of characters.
 For example, `*.rs` will match all the files ending in .rs.",
@@ -157,7 +167,7 @@ fn try_main() -> Result<()> {
         Ok(v) => Ok(Some(v)),
         Err(_) => error!("Invalid permission bits: `{}'", v),
     })?;
-    let mut matcher = FileMatcher::from_dir(dir)?;
+    let mut matcher = FileMatcher::from_dir(dir, matches.is_present("depth"))?;
     matcher.set_ftype(ftype.map_or(Ok(None), |t| {
         if t == "f" {
             Ok(Some('f'))
