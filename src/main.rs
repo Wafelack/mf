@@ -6,7 +6,10 @@ use errors::Result;
 use libc::{c_char, getgrnam, getpwnam};
 use matcher::FileMatcher;
 use pattern::Pattern;
-use std::{ffi::CString, process::{exit, Command}};
+use std::{
+    ffi::CString,
+    process::{exit, Command},
+};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -165,63 +168,68 @@ For example, `*.rs` will match all the files ending in .rs.",
             let (cmd, rargs) = v.split_once(' ').unwrap_or((v, ""));
             let args = to_args(rargs);
 
-            let codes = matched.into_iter().map(|f| {
-                let replaced_args = args.iter().map(|(t, s)| {
-                    let s = s.replace("{}", &f.path);
-                    if *t == 0 {
-                        format!("'{}'", s)
-                    } else if *t == 1 {
-                        format!("\"{}\"", s)
-                    } else {
-                        format!("{}", s)
-                    }
-                });
-                let status = match Command::new(cmd)
-                    .args(replaced_args.clone())
-                    .status()
-                    {
+            let codes = matched
+                .into_iter()
+                .map(|f| {
+                    let replaced_args = args.iter().map(|(t, s)| {
+                        let s = s.replace("{}", &f.path);
+                        if *t == 0 {
+                            format!("'{}'", s)
+                        } else if *t == 1 {
+                            format!("\"{}\"", s)
+                        } else {
+                            format!("{}", s)
+                        }
+                    });
+                    let status = match Command::new(cmd).args(replaced_args.clone()).status() {
                         Ok(s) => Ok(s),
-                        Err(_) => error!("Failed to summon command: `{}`", replaced_args.fold(cmd.to_string(), |acc, s| format!("{} {}", acc, s))),
+                        Err(_) => error!(
+                            "Failed to summon command: `{}`",
+                            replaced_args.fold(cmd.to_string(), |acc, s| format!("{} {}", acc, s))
+                        ),
                     }?;
 
-                Ok(status.code().unwrap_or(-1))
-            }).collect::<Result<Vec<i32>>>()?;
+                    Ok(status.code().unwrap_or(-1))
+                })
+                .collect::<Result<Vec<i32>>>()?;
             for (idx, code) in codes.into_iter().enumerate() {
                 if code != 0 {
-                    return error!("Command #{} failed, exit code: {}.", idx, code)
+                    return error!("Command #{} failed, exit code: {}.", idx, code);
                 }
             }
             Ok(())
-
-        },
+        }
         None => {
             matched.into_iter().for_each(|f| println!("{}", f.path));
             Ok(())
-
-        }    
+        }
     }
 }
 
 fn to_args<'a>(s: &'a str) -> Vec<(u8, &'a str)> {
     s.split('\'')
-    .enumerate()
-    .map(|(idx, s)| if idx % 2 == 0 {
-        s.split('"')
         .enumerate()
-        .map(|(idx, s)| if idx % 2 == 0 {
-            s.split(' ').map(|s| (2, s)).collect()
-        } else {
-            vec![(1, s)]
+        .map(|(idx, s)| {
+            if idx % 2 == 0 {
+                s.split('"')
+                    .enumerate()
+                    .map(|(idx, s)| {
+                        if idx % 2 == 0 {
+                            s.split(' ').map(|s| (2, s)).collect()
+                        } else {
+                            vec![(1, s)]
+                        }
+                    })
+                    .flatten()
+                    .filter(|(_, s)| !s.is_empty())
+                    .collect()
+            } else {
+                vec![(0, s)]
+            }
         })
         .flatten()
         .filter(|(_, s)| !s.is_empty())
         .collect()
-    } else {
-        vec![(0, s)]
-    })
-    .flatten()
-    .filter(|(_, s)| !s.is_empty())
-    .collect()
 }
 
 fn to_cchar(s: &str) -> *const c_char {

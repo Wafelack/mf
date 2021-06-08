@@ -1,7 +1,5 @@
-trouve
+mf - MiniFind
 ======
-
-trouve (french): find.
 
 Find matching files.
 
@@ -9,6 +7,6 @@ Installing
 ----------
 
 ```bash
-$ git clone https://github.com/wafelack/trouve.git
-$ cargo install --path trouve/
+$ git clone https://github.com/wafelack/mf.git
+$ cargo install --path mf/
 ```
