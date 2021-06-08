@@ -1,7 +1,7 @@
-use crate::pattern::Pattern;
 use crate::errors::Result;
-use std::os::unix::fs::MetadataExt;
+use crate::pattern::Pattern;
 use std::fs;
+use std::os::unix::fs::MetadataExt;
 
 #[derive(Clone)]
 pub struct File {
@@ -14,11 +14,15 @@ pub struct File {
 impl File {
     pub fn new(path: String, ftype: bool, uid: u32, gid: u32) -> Self {
         Self {
-            name: path.split('/').last().and_then(|s| Some(s.to_string())).unwrap(),
+            name: path
+                .split('/')
+                .last()
+                .and_then(|s| Some(s.to_string()))
+                .unwrap(),
             ftype,
             uid,
             gid,
-            path
+            path,
         }
     }
 }
@@ -62,8 +66,14 @@ impl FileMatcher {
             .clone()
             .into_iter()
             .map(|f| {
-                let name = self.npatterns.iter().fold(true, |acc, p| acc && p.matches(f.name.clone()));
-                let path = self.ppatterns.iter().fold(true, |acc, p| acc && p.matches(f.path.clone()));
+                let name = self
+                    .npatterns
+                    .iter()
+                    .fold(true, |acc, p| acc && p.matches(f.name.clone()));
+                let path = self
+                    .ppatterns
+                    .iter()
+                    .fold(true, |acc, p| acc && p.matches(f.path.clone()));
                 let gid = self.gid.map_or(true, |i| i == f.gid);
                 let uid = self.uid.map_or(true, |i| i == f.uid);
                 let ftype = if let Some(c) = self.ftype {
@@ -77,7 +87,7 @@ impl FileMatcher {
                 } else {
                     true
                 };
-                if name && path && ftype && gid && uid{
+                if name && path && ftype && gid && uid {
                     Some(f)
                 } else {
                     None
@@ -86,13 +96,12 @@ impl FileMatcher {
             .filter(|f| f.is_some())
             .map(|f| f.unwrap())
             .collect()
-
     }
 }
 fn get_files(dir: String) -> Result<Vec<File>> {
     Ok(fs::read_dir(dir)?
-       .map(|e| {
-           let entry = e?;
+        .map(|e| {
+            let entry = e?;
             let path = entry.path();
             let md = fs::metadata(&path)?;
             let stringified = path.to_str().unwrap().to_string();
@@ -104,6 +113,9 @@ fn get_files(dir: String) -> Result<Vec<File>> {
             } else {
                 vec![f]
             })
-       })
-       .collect::<Result<Vec<Vec<File>>>>()?.into_iter().flatten().collect())
+        })
+        .collect::<Result<Vec<Vec<File>>>>()?
+        .into_iter()
+        .flatten()
+        .collect())
 }
