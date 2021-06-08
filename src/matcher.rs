@@ -1,5 +1,4 @@
-use crate::errors::Result;
-use crate::pattern::Pattern;
+use crate::{NAME, errors::Result, pattern::Pattern};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 
@@ -112,8 +111,14 @@ fn get_files(dir: String, depth: bool) -> Result<Vec<File>> {
        .map(|e| {
            let entry = e?;
            let path = entry.path();
-           let md = fs::metadata(&path)?;
            let stringified = path.to_str().unwrap().to_string();
+           let md = match fs::metadata(&path) {
+               Ok(m) => m,
+               Err(e) => {
+                   eprintln!("{}: Failed to get file metadata: {}: {}.", NAME, stringified, e);
+                   return Ok(vec![]);
+               }
+           };
            let f = File::new(stringified.clone(), path.is_dir(), md.uid(), md.gid(), md.mode() & MODE_MASK);
            Ok(if path.is_dir() {
                let mut files = if !depth {

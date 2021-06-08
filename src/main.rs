@@ -8,7 +8,7 @@ use matcher::FileMatcher;
 use pattern::Pattern;
 use std::process::{exit, Command};
 
-const NAME: &str = env!("CARGO_PKG_NAME");
+pub const NAME: &str = env!("CARGO_PKG_NAME");
 macro_rules! gen_app {
     () => {
         App::new(NAME)
