@@ -2,7 +2,6 @@ mod errors;
 mod matcher;
 mod pattern;
 use errors::Result;
-use libc::{c_char, getgrnam, getpwnam};
 use matcher::FileMatcher;
 use pattern::Pattern;
 use std::process::{exit, Command};
@@ -50,15 +49,6 @@ struct Mf {
     gid: Option<u32>,
     #[structopt(short = "U", long, value_name = "ID", help = "File owner has id ID.")]
     uid: Option<u32>,
-    #[structopt(short, long, value_name = "NAME", help = "File owner has name NAME.")]
-    user: Option<String>,
-    #[structopt(
-        short,
-        long,
-        value_name = "NAME",
-        help = "File owner belongs to the group named NAME."
-    )]
-    group: Option<String>,
     #[structopt(
         short,
         long,
@@ -110,34 +100,6 @@ fn try_main() -> Result<()> {
         .into_iter()
         .map(|n| Pattern::new(n))
         .collect::<Vec<Pattern>>();
-    let uid = match args.uid {
-        Some(u) => Ok(Some(u)),
-        None => match args.user {
-            Some(n) => {
-                let passwd = unsafe { getpwnam(to_cchar(n.as_str())) };
-                if passwd.is_null() {
-                    error!("Failed to query passwd for `{}'.", n)
-                } else {
-                    Ok(Some(unsafe { (*passwd).pw_uid }))
-                }
-            }
-            None => Ok(None),
-        },
-    }?;
-    let gid = match args.gid {
-        Some(u) => Ok(Some(u)),
-        None => match args.group {
-            Some(n) => {
-                let grp = unsafe { getgrnam(to_cchar(n.as_str())) };
-                if grp.is_null() {
-                    error!("Failed to query group for `{}'.", n)
-                } else {
-                    Ok(Some(unsafe { (*grp).gr_gid }))
-                }
-            }
-            None => Ok(None),
-        },
-    }?;
     let perms = args
         .perms
         .map_or(Ok(None), |v| match u32::from_str_radix(v.as_str(), 8) {
@@ -154,8 +116,8 @@ fn try_main() -> Result<()> {
     })?);
     matcher.add_npatterns(&name);
     matcher.add_ppatterns(&path);
-    matcher.set_uid(uid);
-    matcher.set_gid(gid);
+    matcher.set_uid(args.uid);
+    matcher.set_gid(args.gid);
     matcher.set_perms(perms);
     let matched = matcher.matches();
     match args.exec {
@@ -225,16 +187,4 @@ fn to_args<'a>(s: &'a str) -> Vec<(u8, &'a str)> {
         .flatten()
         .filter(|(_, s)| !s.is_empty())
         .collect()
-}
-
-fn to_cchar(s: &str) -> *const c_char {
-    let mut bytes = s
-        .chars()
-        .map(|c| {
-            println!("{};{}", c, c as i8);
-            c as i8
-        })
-        .collect::<Vec<i8>>();
-    bytes.push(0);
-    bytes.as_ptr()
 }
