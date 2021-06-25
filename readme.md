@@ -10,5 +10,7 @@ Installing
 
 ```bash
 $ git clone https://github.com/wafelack/mf.git
-$ cargo install --path mf/
+$ cd mf/
+$ make
+$ make install [PREFIX=/wherever/you/want]
 ```
