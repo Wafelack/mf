@@ -14,31 +14,31 @@ impl Pattern {
         let text = text.to_string();
         let (start, end) = (text.starts_with('*'), text.ends_with('*'));
         let count = text.matches('*').count();
-        Pattern { rules: if count == 0 {
-            vec![PT::Equal(text)]
-        } else {
-            text
-                .split('*')
-                .enumerate()
-                .map(|(idx, s)| {
-                    let s = s.to_string();
-                    if !start && idx == 0 {
-                        PT::Start(s)
-                    } else if !end && idx == count {
-                        PT::End(s)
-                    } else {
-                        PT::Contains(s)
-                    }
-                })
-            .filter(|p| {
-                if let PT::Contains(s) = p {
-                    s.as_str() != ""
-                } else {
-                    true
-                }
-            })
-            .collect()
-        }
+        Pattern {
+            rules: if count == 0 {
+                vec![PT::Equal(text)]
+            } else {
+                text.split('*')
+                    .enumerate()
+                    .map(|(idx, s)| {
+                        let s = s.to_string();
+                        if !start && idx == 0 {
+                            PT::Start(s)
+                        } else if !end && idx == count {
+                            PT::End(s)
+                        } else {
+                            PT::Contains(s)
+                        }
+                    })
+                    .filter(|p| {
+                        if let PT::Contains(s) = p {
+                            s.as_str() != ""
+                        } else {
+                            true
+                        }
+                    })
+                    .collect()
+            },
         }
     }
     pub fn matches(&self, s: impl ToString) -> bool {
@@ -75,11 +75,11 @@ mod test {
         assert_eq!(
             Pattern::new("src*m*.rs").rules,
             vec![
-            PT::Start("src".to_string()),
-            PT::Contains("m".to_string()),
-            PT::End(".rs".to_string())
+                PT::Start("src".to_string()),
+                PT::Contains("m".to_string()),
+                PT::End(".rs".to_string())
             ]
-            );
+        );
     }
     #[test]
     fn pat_matches() {

@@ -1,4 +1,4 @@
-use crate::{NAME, errors::Result, pattern::Pattern};
+use crate::{errors::Result, pattern::Pattern, NAME};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 
@@ -19,11 +19,11 @@ impl File {
                 .last()
                 .and_then(|s| Some(s.to_string()))
                 .unwrap(),
-                ftype,
-                uid,
-                gid,
-                path,
-                perms,
+            ftype,
+            uid,
+            gid,
+            path,
+            perms,
         }
     }
 }
@@ -38,9 +38,9 @@ pub struct FileMatcher {
     ftype: Option<char>,
 }
 impl FileMatcher {
-    pub fn from_dir(dir: impl ToString, depth: bool) -> Result<Self> {
+    pub fn from_dir(dir: impl ToString, depth: bool, maxdepth: Option<u32>) -> Result<Self> {
         Ok(Self {
-            files: get_files(dir.to_string(), depth)?,
+            files: get_files(dir.to_string(), depth, maxdepth)?,
             npatterns: vec![],
             ppatterns: vec![],
             gid: None,
@@ -100,43 +100,62 @@ impl FileMatcher {
                     None
                 }
             })
-        .filter(|f| f.is_some())
+            .filter(|f| f.is_some())
             .map(|f| f.unwrap())
             .collect()
     }
 }
 const MODE_MASK: u32 = 0b111111111111;
-fn get_files(dir: String, depth: bool) -> Result<Vec<File>> {
+fn get_files(dir: String, depth: bool, maxdepth: Option<u32>) -> Result<Vec<File>> {
     Ok(fs::read_dir(dir)?
-       .map(|e| {
-           let entry = e?;
-           let path = entry.path();
-           let stringified = path.to_str().unwrap().to_string();
-           let md = match fs::metadata(&path) {
-               Ok(m) => m,
-               Err(e) => {
-                   eprintln!("{}: Failed to get file metadata: {}: {}.", NAME, stringified, e);
-                   return Ok(vec![]);
-               }
-           };
-           let f = File::new(stringified.clone(), path.is_dir(), md.uid(), md.gid(), md.mode() & MODE_MASK);
-           Ok(if path.is_dir() {
-               let mut files = if !depth {
-                   vec![f.clone()]
-               } else {
-                   vec![]
-               };
-               files.extend(get_files(stringified, depth)?);
-               if depth {
-                   files.push(f);
-               }
-               files
-           } else {
-               vec![f]
-           })
-       })
-       .collect::<Result<Vec<Vec<File>>>>()?
-       .into_iter()
-       .flatten()
-       .collect())
+        .map(|e| {
+            let entry = e?;
+            let path = entry.path();
+            let stringified = path.to_str().unwrap().to_string();
+            let md = match fs::metadata(&path) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!(
+                        "{}: Failed to get file metadata: {}: {}.",
+                        NAME, stringified, e
+                    );
+                    return Ok(vec![]);
+                }
+            };
+            let f = File::new(
+                stringified.clone(),
+                path.is_dir(),
+                md.uid(),
+                md.gid(),
+                md.mode() & MODE_MASK,
+            );
+            Ok(if path.is_dir() {
+                let mut files = if !depth { vec![f.clone()] } else { vec![] };
+                if let Some(v) = maxdepth {
+                    if v > 0 {
+                        files.extend(get_files(
+                            stringified,
+                            depth,
+                            maxdepth.and_then(|v| Some(v - 1)),
+                        )?);
+                    }
+                } else {
+                    files.extend(get_files(
+                        stringified,
+                        depth,
+                        maxdepth.and_then(|v| Some(v - 1)),
+                    )?);
+                }
+                if depth {
+                    files.push(f);
+                }
+                files
+            } else {
+                vec![f]
+            })
+        })
+        .collect::<Result<Vec<Vec<File>>>>()?
+        .into_iter()
+        .flatten()
+        .collect())
 }
