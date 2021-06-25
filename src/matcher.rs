@@ -30,8 +30,8 @@ impl File {
 
 pub struct FileMatcher {
     files: Vec<File>,
-    npatterns: Vec<Pattern>,
-    ppatterns: Vec<Pattern>,
+    npattern: Option<Pattern>,
+    ppattern: Option<Pattern>,
     gid: Option<u32>,
     uid: Option<u32>,
     perms: Option<u32>,
@@ -41,8 +41,8 @@ impl FileMatcher {
     pub fn from_dir(dir: impl ToString, depth: bool, maxdepth: Option<u32>) -> Result<Self> {
         Ok(Self {
             files: get_files(dir.to_string(), depth, maxdepth)?,
-            npatterns: vec![],
-            ppatterns: vec![],
+            npattern: None,
+            ppattern: None,
             gid: None,
             uid: None,
             perms: None,
@@ -52,11 +52,11 @@ impl FileMatcher {
     pub fn set_ftype(&mut self, ftype: Option<char>) {
         self.ftype = ftype;
     }
-    pub fn add_npatterns(&mut self, patterns: &[Pattern]) {
-        self.npatterns.extend_from_slice(patterns);
+    pub fn set_npattern(&mut self, pattern: Option<Pattern>) {
+        self.npattern = pattern;
     }
-    pub fn add_ppatterns(&mut self, patterns: &[Pattern]) {
-        self.ppatterns.extend_from_slice(patterns);
+    pub fn set_ppattern(&mut self, pattern: Option<Pattern>) {
+        self.ppattern = pattern;
     }
     pub fn set_gid(&mut self, id: Option<u32>) {
         self.gid = id;
@@ -72,14 +72,16 @@ impl FileMatcher {
             .clone()
             .into_iter()
             .map(|f| {
-                let name = self
-                    .npatterns
-                    .iter()
-                    .fold(true, |acc, p| acc && p.matches(f.name.clone()));
-                let path = self
-                    .ppatterns
-                    .iter()
-                    .fold(true, |acc, p| acc && p.matches(f.path.clone()));
+                let name = if let Some(p) = &self.npattern {
+                    p.matches(&f.name)
+                } else {
+                    true
+                };
+                let path = if let Some(p) = &self.ppattern {
+                    p.matches(&f.name)
+                } else {
+                    true
+                };
                 let gid = self.gid.map_or(true, |i| i == f.gid);
                 let uid = self.uid.map_or(true, |i| i == f.uid);
                 let mode = self.perms.map_or(true, |m| m == f.perms);

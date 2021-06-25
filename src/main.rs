@@ -2,81 +2,16 @@ mod errors;
 mod matcher;
 mod pattern;
 use errors::Result;
+use getopt_rs::getopt_long;
 use matcher::FileMatcher;
 use pattern::Pattern;
-use std::process::{exit, Command};
-use structopt::StructOpt;
+use std::{
+    env,
+    process::{exit, Command},
+};
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
-#[derive(StructOpt)]
-#[structopt(name = NAME, about = "Find files", after_help = "Patterns work with wildcards, a wildcard matches every set of characters.\nFor example, `*.rs` will match all the files which name ends in `.rs`." )]
-struct Mf {
-    #[structopt(
-        default_value = ".",
-        value_name = "DIR",
-        help = "The directory to search in."
-    )]
-    dir: String,
-    #[structopt(
-        short,
-        long,
-        multiple = true,
-        value_name = "PAT",
-        help = "File name matches pattern(s) PAT."
-    )]
-    name: Vec<String>,
-    #[structopt(
-        short,
-        long,
-        value_name = "TYPE",
-        help = "File is of type TYPE. 'f' stands for file and 'd' for directory."
-    )]
-    r#type: Option<char>,
-    #[structopt(
-        short,
-        long,
-        multiple = true,
-        value_name = "PAT",
-        help = "File path matches pattern(s) PAT."
-    )]
-    path: Vec<String>,
-    #[structopt(
-        short = "G",
-        long,
-        value_name = "ID",
-        help = "File owner group has id ID."
-    )]
-    gid: Option<u32>,
-    #[structopt(short = "U", long, value_name = "ID", help = "File owner has id ID.")]
-    uid: Option<u32>,
-    #[structopt(
-        short,
-        long,
-        value_name = "COMMAND",
-        help = "The command to run for each file. `{}` is replaced by the file name in the command."
-    )]
-    exec: Option<String>,
-    #[structopt(
-        short = "P",
-        long,
-        value_name = "BITS",
-        help = "File has permissions bits set to BITS."
-    )]
-    perms: Option<String>,
-    #[structopt(
-        short,
-        long,
-        help = "Process the directory content before the directory itself."
-    )]
-    depth: bool,
-    #[structopt(
-        short,
-        long,
-        value_name = "DEPTH",
-        help = "Reach at most DEPTH level of nested directories."
-    )]
-    maxdepth: Option<u32>,
-}
+
 fn main() {
     match try_main() {
         Ok(()) => {}
@@ -87,26 +22,110 @@ fn main() {
     }
 }
 
+fn help() {
+    println!("Usage: {} [OPTION]... [FOLDER]
+Find files in a directory hierarchy.
+
+If no FOLDER is specified, . (the current directory) is used.
+By default, mf goes into every directory beyond the FOLDER, howver, this could be changed with the --maxdepth option.
+
+-d, --depth             Process the directory content before the directory itself.
+-x, --exec COMMAND      The command to run for each file. `{{}}` is replaced by the file's name in the command.
+-g, --gid ID            File owner belongs to the group that has id ID.
+-n, --name PAT          File name matches pattern PAT.
+-p, --path PAT          File path matches pattern PAT.
+-P, --perms PAT         File has permission bits set to BITS.
+-t, --type TYPE         File is of type TYPE. Type `f` stands for file and `d` for directory.
+-u, --uid ID            File owner has user id ID.
+-m, --maxdepth DEPTH    Reach at most DEPTH nested directories.
+-h, --help              Display this help and exit.
+-V, --version           Display version information and exit.
+
+Patterns work with wildcards, a wildcard matches every set of characters.
+For example, `*.rs` will match all the files which name ends in `.rs`, and 
+`*foo*` will match all the files containing `foo` in their names.", NAME);
+}
+
 fn try_main() -> Result<()> {
-    let args = Mf::from_args();
-    let name = args
-        .name
-        .into_iter()
-        .map(|n| Pattern::new(n))
-        .collect::<Vec<Pattern>>();
-    let ftype = args.r#type;
-    let path = args
-        .path
-        .into_iter()
-        .map(|n| Pattern::new(n))
-        .collect::<Vec<Pattern>>();
-    let perms = args
-        .perms
-        .map_or(Ok(None), |v| match u32::from_str_radix(v.as_str(), 8) {
-            Ok(v) => Ok(Some(v)),
-            Err(_) => error!("Invalid permission bits: `{}'", v),
-        })?;
-    let mut matcher = FileMatcher::from_dir(args.dir, args.depth, args.maxdepth)?;
+    let mut args = env::args().collect();
+    let (mut name, mut ftype, mut path, mut perms, mut uid, mut gid, mut command, mut maxdepth) =
+        (None, None, None, None, None, None, None, None);
+    let mut depth = false;
+    while let Some(opt) = getopt_long(
+        &mut args,
+        "dx:g:n:p:P:t:u:m:hV",
+        &[
+            ('d', "depth"),
+            ('x', "exec"),
+            ('g', "gid"),
+            ('n', "name"),
+            ('p', "path"),
+            ('P', "perms"),
+            ('t', "type"),
+            ('u', "uid"),
+            ('m', "maxdepth"),
+            ('h', "help"),
+            ('V', "version"),
+        ],
+    ) {
+        match opt {
+            ('\0', _) => exit(1),
+            ('h', _) => {
+                help();
+                return Ok(());
+            }
+            ('v', _) => {
+                println!("{} {}", NAME, env!("CARGO_PKG_NAME"));
+                return Ok(());
+            }
+            ('d', _) => depth = true,
+            ('x', val) => command = val,
+            ('g', val) => {
+                    let val = val.unwrap().clone();
+                gid = Some(
+                    val
+                        .as_str()
+                        .parse::<u32>()
+                        .map_err(|_| errors::Error(format!("Invalid ID: `{}`.", val)))?,
+                )
+            }
+            ('n', val) => name = Some(Pattern::new(val.unwrap())),
+            ('p', val) => path = Some(Pattern::new(val.unwrap())),
+            ('P', val) => {
+                let val = val.unwrap().clone();
+                perms = Some(u32::from_str_radix(&val, 8).map_err(|_| {
+                    errors::Error(format!("Invalid permission bits: `{}`", val))
+                })?)
+            }
+            ('t', val) => {
+                ftype = Some(match val.unwrap() {
+                    t if t == "f" || t == "d" => Ok(t.chars().nth(0).unwrap()),
+                    x => error!("Invalid file type: `{}`.", x),
+                }?)
+            }
+            ('u', val) => {
+                let val = val.unwrap().clone();
+                uid = Some(
+                    val.parse::<u32>()
+                        .map_err(|_| errors::Error(format!("Invalid ID: `{}`.", val)))?,
+                )
+            }
+            ('m', val) => {
+                let val = val.unwrap().clone();
+                maxdepth =
+                    Some(val.parse::<u32>().map_err(|_| {
+                        errors::Error(format!("Invalid depth: `{}`.", val))
+                    })?)
+            }
+            _ => break,
+        }
+    }
+
+    let mut matcher = FileMatcher::from_dir(
+        args.into_iter().nth(1).unwrap_or(".".to_string()),
+        depth,
+        maxdepth,
+    )?;
     matcher.set_ftype(ftype.map_or(Ok(None), |t| {
         if t == 'f' || t == 'd' {
             Ok(Some(t))
@@ -114,13 +133,13 @@ fn try_main() -> Result<()> {
             error!("Invalid file type: {}.", t)
         }
     })?);
-    matcher.add_npatterns(&name);
-    matcher.add_ppatterns(&path);
-    matcher.set_uid(args.uid);
-    matcher.set_gid(args.gid);
+    matcher.set_npattern(name);
+    matcher.set_ppattern(path);
+    matcher.set_uid(uid);
+    matcher.set_gid(gid);
     matcher.set_perms(perms);
     let matched = matcher.matches();
-    match args.exec {
+    match command {
         Some(v) => {
             let (cmd, rargs) = v.split_once(' ').unwrap_or((v.as_str(), ""));
             let args = to_args(rargs);
