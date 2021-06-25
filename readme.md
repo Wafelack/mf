@@ -3,8 +3,6 @@ mf - MiniFind
 
 Find matching files.
 
-<img src="assets/mf.gif" width="1200px" >
-
 Installing
 ----------
 
