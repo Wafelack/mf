@@ -2,7 +2,7 @@ mod errors;
 mod matcher;
 mod pattern;
 use errors::Result;
-use getopt_rs::getopt_long;
+use getopt_rs::getopt;
 use matcher::FileMatcher;
 use pattern::Pattern;
 use std::{
@@ -51,7 +51,7 @@ fn try_main() -> Result<()> {
     let (mut name, mut ftype, mut path, mut perms, mut uid, mut gid, mut command, mut maxdepth) =
         (None, None, None, None, None, None, None, None);
     let mut depth = false;
-    while let Some(opt) = getopt_long(
+    while let Some(opt) = getopt(
         &mut args,
         "dx:g:n:p:P:t:u:m:hV",
         &[
@@ -69,7 +69,6 @@ fn try_main() -> Result<()> {
         ],
     ) {
         match opt {
-            ('\0', _) => exit(1),
             ('h', _) => {
                 help();
                 return Ok(());
@@ -117,7 +116,7 @@ fn try_main() -> Result<()> {
                         errors::Error(format!("Invalid depth: `{}`.", val))
                     })?)
             }
-            _ => break,
+            _ => exit(1),
         }
     }
 

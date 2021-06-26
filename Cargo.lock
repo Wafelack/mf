@@ -2,9 +2,9 @@
 # It is not intended for manual editing.
 [[package]]
 name = "getopt_rs"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd82efbec74b3f22febb92eb95feb77fed1b0f2622bf4cbe7ad2dff1257f878b"
+checksum = "537745a10a8973627f0844e55afa098a97e396281dc25f03dfb13854d811ec79"
 
 [[package]]
 name = "mf"
